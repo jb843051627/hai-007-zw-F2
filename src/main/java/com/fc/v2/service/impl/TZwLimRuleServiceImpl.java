@@ -188,4 +188,79 @@ public class TZwLimRuleServiceImpl implements ITZwLimRuleService {
         }
         return 4;
     }
+
+    // ── 以下为水质评价收进系统后，加在老方法底下的同名一层；以上老取法维持原样，一个字不动。 ──
+
+    @Override
+    public com.fc.v2.model.custom.wq.WqEvalOutcome evaluate(com.fc.v2.model.custom.wq.WqEvalQuery query) {
+        if (query == null) {
+            return com.fc.v2.model.custom.wq.WqEvalOutcome.invalid(null, null, null, null, "评价入参为空，退回重录");
+        }
+        String itemCode = query.getItemCode();
+        String category = query.getSampleCategory();
+        java.math.BigDecimal qty = query.getQty();
+        java.util.Date at = query.getTestedAt();
+        // 读数不在合理区间——空值、负数、超大怪值——不参与定级，退回化验员重录
+        if (itemCode == null || itemCode.trim().isEmpty()
+                || category == null || category.trim().isEmpty() || at == null
+                || !com.fc.v2.service.zw.WqGradeRule.validReading(qty)) {
+            return com.fc.v2.model.custom.wq.WqEvalOutcome.invalid(itemCode, category, qty, at,
+                    "读数或检测信息不合规（空值/负数/超大怪值），退回化验员重录");
+        }
+        // 用哪条线只看检测发生那天：捞同项同类、未删除的全部在册线（含让位线，由现行谓词当场筛）
+        java.util.List<TZwLimRule> rules = this.zwLimRuleMapper.selectList(new QueryWrapper<TZwLimRule>()
+                .eq("del_flag", 0)
+                .eq("item_code", itemCode)
+                .eq("sample_category", category));
+        TZwLimRule picked = com.fc.v2.service.zw.WqGradeRule.pick(rules, itemCode, category, at);
+        if (picked == null) {
+            // 查不到可用标准：明写「无可用标准」，不拿临近日期凑合，更不硬给结论
+            return com.fc.v2.model.custom.wq.WqEvalOutcome.noRule(itemCode, category, qty, at);
+        }
+        int level = com.fc.v2.service.zw.WqGradeRule.grade(picked, qty);
+        if (level == com.fc.v2.service.zw.WqGradeRule.GRADE_NONE) {
+            // 三档界值全空的残线，套不出档：按无可用结论处理，不许硬塞一档
+            return com.fc.v2.model.custom.wq.WqEvalOutcome.noRule(itemCode, category, qty, at);
+        }
+        return com.fc.v2.model.custom.wq.WqEvalOutcome.graded(itemCode, category, qty, at, picked, level);
+    }
+
+    @Override
+    public com.fc.v2.model.custom.wq.WqEvalOutcome review(String ruleCode, java.util.Date ruleEffStart,
+                                                          java.math.BigDecimal qty, java.util.Date testedAt) {
+        // 历史复核只认编号：凭当时写入的代号+生效日把那条线原样调出，让位线照样取，绝不改算成今天的现役线
+        if (ruleCode == null || ruleCode.trim().isEmpty() || ruleEffStart == null || testedAt == null
+                || !com.fc.v2.service.zw.WqGradeRule.validReading(qty)) {
+            return com.fc.v2.model.custom.wq.WqEvalOutcome.invalid(
+                    ruleCode, null, qty, testedAt, "复核编号上下文或读数不合规，无法重评");
+        }
+        java.util.List<TZwLimRule> sameCode = this.zwLimRuleMapper.selectList(new QueryWrapper<TZwLimRule>()
+                .eq("del_flag", 0)
+                .eq("rule_code", ruleCode));
+        TZwLimRule exact = null;
+        for (TZwLimRule r : sameCode) {
+            if (r.getEffStart() != null && r.getEffStart().getTime() == ruleEffStart.getTime()) {
+                exact = r;
+                break;
+            }
+        }
+        if (exact == null) {
+            // 编号已不可考：如实说无可用标准，不拿临近日期的版本顶替
+            return com.fc.v2.model.custom.wq.WqEvalOutcome.noRule(exactItemCode(sameCode), exactCategory(sameCode), qty, testedAt);
+        }
+        int level = com.fc.v2.service.zw.WqGradeRule.grade(exact, qty);
+        if (level == com.fc.v2.service.zw.WqGradeRule.GRADE_NONE) {
+            return com.fc.v2.model.custom.wq.WqEvalOutcome.noRule(exact.getItemCode(), exact.getSampleCategory(), qty, testedAt);
+        }
+        return com.fc.v2.model.custom.wq.WqEvalOutcome.graded(
+                exact.getItemCode(), exact.getSampleCategory(), qty, testedAt, exact, level);
+    }
+
+    private static String exactItemCode(java.util.List<TZwLimRule> rules) {
+        return rules == null || rules.isEmpty() ? null : rules.get(0).getItemCode();
+    }
+
+    private static String exactCategory(java.util.List<TZwLimRule> rules) {
+        return rules == null || rules.isEmpty() ? null : rules.get(0).getSampleCategory();
+    }
 }
