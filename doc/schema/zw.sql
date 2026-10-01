@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS t_zw_imp_row (
   row_no int DEFAULT NULL COMMENT '原表行次',
   item_code varchar(64) DEFAULT NULL COMMENT '被校验出的数据项代号',
   qty decimal(12,2) DEFAULT NULL COMMENT '本行检测读数',
+  sample_type varchar(32) DEFAULT NULL COMMENT '样本类别(水源水/出厂水/管网末梢)',
+  test_at datetime DEFAULT NULL COMMENT '检测发生那天（用哪条线只看这天，不看今天）',
+  grade_level int DEFAULT NULL COMMENT '评价等级 1合格 2关注 3超标 4严重超标；空=未定级(无可用标准)',
+  rule_code varchar(64) DEFAULT NULL COMMENT '定级所依标准线代号（服务层回值钉死，写过不再改）',
+  rule_eff_date datetime DEFAULT NULL COMMENT '所依标准的生效那天（历史复核只认此编号上下文）',
   status int DEFAULT NULL COMMENT '行落地情形 0待核 1已入库 2退回',
   del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
   create_by varchar(64) DEFAULT NULL COMMENT '创建者',
@@ -58,6 +63,7 @@ CREATE TABLE IF NOT EXISTS t_zw_lim_rule (
   id bigint NOT NULL COMMENT '主键',
   rule_code varchar(64) DEFAULT NULL COMMENT '水质限值判定线代号',
   rule_name varchar(128) DEFAULT NULL COMMENT '判定线名',
+  sample_type varchar(32) DEFAULT NULL COMMENT '适用样本类别(水源水/出厂水/管网末梢)',
   th1_max decimal(12,2) DEFAULT NULL COMMENT '关注档指标上限',
   th2_max decimal(12,2) DEFAULT NULL COMMENT '超标档指标上限',
   th3_max decimal(12,2) DEFAULT NULL COMMENT '严重超标档指标上限',
@@ -168,4 +174,16 @@ VALUES (0, 'ZS00', '青坪市城北水源地（在用）', '水源地', '青坪�
 INSERT IGNORE INTO t_zw_sam_plan (id, plan_no, site_no, team_id, period_days, amount, first_due, eff_start, eff_end, content, status, del_flag, create_by, create_time)
 VALUES (10, 'PL-ZS00-M', 'ZS00', NULL, 30, 3.00, '2026-09-01', '2026-09-01 00:00:00', NULL, '城北水源地月度例行采样', 0, 0, 'seed', NOW()),
        (11, 'PL-ZS01-Q', 'ZS01', 2, 90, 3.00, '2026-09-15', '2026-09-15 00:00:00', NULL, '城南水厂季度采样（点位已退役，开单即挂起）', 0, 0, 'seed', NOW());
+
+-- 水质限值分档判定线种子（出厂水余氯 mg/L）：
+-- 100 旧线 CL-FW-2024：上年口径，上限松，严重超标一格早期入册本就留空（空=不设此档，随超标档下推），
+--     管到 2026-01-01（不含），现已让位，只作回溯依据，不参与现行评价；
+-- 101 新线 CL-FW-2026：今年收紧，自 2026-01-01 00:00:00 起现行——交接日全厂一套口径，旧线管到进程、新线从结局起算；
+-- 102/103 水源水、管网末梢各一条，与出厂水各管各的。
+-- 读数值与界值相同算高档；顺位相同并行使权时按代号序列排后者胜出（确定性，四季一致）。
+INSERT IGNORE INTO t_zw_lim_rule (id, rule_code, rule_name, sample_type, th1_max, th2_max, th3_max, eff_start, eff_end, priority, status, del_flag, create_by, create_time, remark)
+VALUES (100, 'CL-FW-2024', '出厂水余氯分档线(上年口径)', '出厂水', 0.30, 0.50, NULL, '2024-01-01 00:00:00', '2026-01-01 00:00:00', 10, 1, 0, 'seed', NOW(), '上年宽口径；严重超标档留空即不设此档'),
+       (101, 'CL-FW-2026', '出厂水余氯分档线(今年收紧)', '出厂水', 0.20, 0.40, 0.60, '2026-01-01 00:00:00', NULL, 10, 0, 0, 'seed', NOW(), '今年收紧口径'),
+       (102, 'CL-SW-2026', '水源水余氯分档线', '水源水', 0.20, 0.30, 0.50, '2026-01-01 00:00:00', NULL, 10, 0, 0, 'seed', NOW(), NULL),
+       (103, 'CL-PN-2026', '管网末梢余氯分档线', '管网末梢', 0.15, 0.25, 0.40, '2026-01-01 00:00:00', NULL, 10, 0, 0, 'seed', NOW(), NULL);
 

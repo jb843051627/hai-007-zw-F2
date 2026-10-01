@@ -42,6 +42,11 @@ public class TZwLimRule implements Serializable {
     @ApiModelProperty(value = "判定线名")
     private String ruleName;
 
+    /** 适用样本类别(水源水/出厂水/管网末梢，各管各的) */
+    @TableField("sample_type")
+    @ApiModelProperty(value = "适用样本类别(水源水/出厂水/管网末梢)")
+    private String sampleType;
+
     /** 关注档指标上限 */
     @TableField("th1_max")
     @ApiModelProperty(value = "关注档指标上限")
@@ -133,6 +138,14 @@ public class TZwLimRule implements Serializable {
 
     public void setRuleName(String ruleName) {
         this.ruleName = ruleName;
+    }
+
+    public String getSampleType() {
+        return sampleType;
+    }
+
+    public void setSampleType(String sampleType) {
+        this.sampleType = sampleType;
     }
 
     public BigDecimal getTh1Max() {

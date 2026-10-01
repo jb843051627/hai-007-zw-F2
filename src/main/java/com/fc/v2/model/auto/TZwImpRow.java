@@ -52,6 +52,33 @@ public class TZwImpRow implements Serializable {
     @ApiModelProperty(value = "本行检测读数")
     private BigDecimal qty;
 
+    /** 样本类别(水源水/出厂水/管网末梢) */
+    @TableField("sample_type")
+    @ApiModelProperty(value = "样本类别(水源水/出厂水/管网末梢)")
+    private String sampleType;
+
+    /** 检测发生那天——用哪条线只看这一天，不看入库的今天 */
+    @TableField("test_at")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    @ApiModelProperty(value = "检测发生那天")
+    private Date testAt;
+
+    /** 评价等级 1合格 2关注 3超标 4严重超标；空=未定级（无可用标准） */
+    @TableField("grade_level")
+    @ApiModelProperty(value = "评价等级 1合格 2关注 3超标 4严重超标")
+    private Integer gradeLevel;
+
+    /** 定级所依标准线代号（服务层回值钉死，写过不再改） */
+    @TableField("rule_code")
+    @ApiModelProperty(value = "定级所依标准线代号")
+    private String ruleCode;
+
+    /** 所依标准的生效那天（随定级一并钉死，历史复核只认这个编号上下文） */
+    @TableField("rule_eff_date")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    @ApiModelProperty(value = "所依标准的生效那天")
+    private Date ruleEffDate;
+
     /** 行落地情形 0待核 1已入库 2退回 */
     @TableField("status")
     @ApiModelProperty(value = "行落地情形 0待核 1已入库 2退回")
@@ -127,6 +154,46 @@ public class TZwImpRow implements Serializable {
 
     public void setQty(BigDecimal qty) {
         this.qty = qty;
+    }
+
+    public String getSampleType() {
+        return sampleType;
+    }
+
+    public void setSampleType(String sampleType) {
+        this.sampleType = sampleType;
+    }
+
+    public Date getTestAt() {
+        return testAt;
+    }
+
+    public void setTestAt(Date testAt) {
+        this.testAt = testAt;
+    }
+
+    public Integer getGradeLevel() {
+        return gradeLevel;
+    }
+
+    public void setGradeLevel(Integer gradeLevel) {
+        this.gradeLevel = gradeLevel;
+    }
+
+    public String getRuleCode() {
+        return ruleCode;
+    }
+
+    public void setRuleCode(String ruleCode) {
+        this.ruleCode = ruleCode;
+    }
+
+    public Date getRuleEffDate() {
+        return ruleEffDate;
+    }
+
+    public void setRuleEffDate(Date ruleEffDate) {
+        this.ruleEffDate = ruleEffDate;
     }
 
     public Integer getStatus() {
